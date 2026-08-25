@@ -61,6 +61,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         updateItem.submenu = layouts.isEmpty ? nil : buildLayoutMenu(layouts: layouts, matching: fingerprint, action: #selector(updateLayout(_:)))
         menu.addItem(updateItem)
 
+        let defaultItem = item("Set Default Layout", nil, enabled: !layouts.isEmpty)
+        defaultItem.submenu = layouts.isEmpty ? nil : buildLayoutMenu(layouts: layouts, matching: fingerprint, action: #selector(setDefaultLayout(_:)), showDefaultMarker: true)
+        menu.addItem(defaultItem)
+
         menu.addItem(.separator())
         let autoApplyItem = item("Auto-Apply on Monitor Change", #selector(toggleAutoApply))
         autoApplyItem.state = Preferences.autoApplyEnabled ? .on : .off
@@ -73,17 +77,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     /// Builds a submenu listing every saved layout (current-setup matches grouped on
-    /// top), wired to the given action. Shared by "Apply Layout" and "Update Layout".
-    private func buildLayoutMenu(layouts: [Layout], matching fingerprint: [String], action: Selector) -> NSMenu {
+    /// top), wired to the given action. Shared by "Apply Layout", "Update Layout",
+    /// and "Set Default Layout" — `showDefaultMarker` puts a checkmark on whichever
+    /// layout is currently the default for its fingerprint (used by the latter).
+    private func buildLayoutMenu(layouts: [Layout], matching fingerprint: [String], action: Selector, showDefaultMarker: Bool = false) -> NSMenu {
         let submenu = NSMenu()
         let matchSet = Set(fingerprint)
-        let matching = layouts.filter { Set($0.fingerprint) == matchSet }
-        let others = layouts.filter { Set($0.fingerprint) != matchSet }
+        // Default-for-its-fingerprint layouts sort first within each group.
+        let matching = layouts.filter { Set($0.fingerprint) == matchSet }.sorted { $0.isDefault && !$1.isDefault }
+        let others = layouts.filter { Set($0.fingerprint) != matchSet }.sorted { $0.isDefault && !$1.isDefault }
 
         func addLayout(_ layout: Layout) {
-            let menuItem = NSMenuItem(title: "\(layout.name) (\(layout.displaysLabel))", action: action, keyEquivalent: "")
+            let title = layout.isDefault ? "\(layout.name) (\(layout.displaysLabel)) — Default" : "\(layout.name) (\(layout.displaysLabel))"
+            let menuItem = NSMenuItem(title: title, action: action, keyEquivalent: "")
             menuItem.target = self
             menuItem.representedObject = layout.id
+            if showDefaultMarker { menuItem.state = layout.isDefault ? .on : .off }
             submenu.addItem(menuItem)
         }
 
@@ -145,10 +154,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let matching = layoutStore.layouts(matching: Array(fingerprint))
         guard !matching.isEmpty else { return }
 
-        // If several saved layouts share this fingerprint, prefer the one that was
-        // most recently applied/updated (rather than guessing or applying all of
-        // them); otherwise there's only one candidate.
-        let layout = matching.first { $0.id == Preferences.lastUsedLayoutID } ?? matching.first!
+        // If several saved layouts share this fingerprint: prefer the one
+        // explicitly marked default, then the one most recently applied/updated,
+        // then whichever comes first — otherwise there's only one candidate.
+        let layout = matching.first(where: \.isDefault)
+            ?? matching.first { $0.id == Preferences.lastUsedLayoutID }
+            ?? matching.first!
 
         let result = WindowManager.apply(layout.windows)
         Preferences.lastUsedLayoutID = layout.id
@@ -208,6 +219,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             body += " Not running: \(result.skippedApps.joined(separator: ", "))."
         }
         inform(title: "Applied “\(layout.name)”", body: body)
+    }
+
+    @objc private func setDefaultLayout(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? UUID else { return }
+        layoutStore.setDefault(id)
     }
 
     @objc private func updateLayout(_ sender: NSMenuItem) {

@@ -25,12 +25,24 @@ struct LayoutsView: View {
                     ForEach(layouts) { layout in
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(layout.name).font(.headline)
+                                HStack(spacing: 4) {
+                                    Text(layout.name).font(.headline)
+                                    if layout.isDefault {
+                                        Text("Default")
+                                            .font(.caption2)
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 1)
+                                            .background(.tint, in: Capsule())
+                                            .foregroundStyle(.white)
+                                    }
+                                }
                                 Text("\(layout.displaysLabel) · \(layout.windows.count) window\(layout.windows.count == 1 ? "" : "s") · saved \(layout.createdAt.formatted(date: .abbreviated, time: .shortened))")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
+                            Button(layout.isDefault ? "Unset Default" : "Make Default") { toggleDefault(layout) }
+                                .buttonStyle(.bordered)
                             Button("Rename…") {
                                 renameText = layout.name
                                 layoutPendingRename = layout
@@ -86,6 +98,11 @@ struct LayoutsView: View {
     private func update(_ layout: Layout) {
         let updated = LayoutStore.updating(layout, withCurrentWindows: WindowManager.captureCurrentWindows())
         store.save(updated)
+        refresh()
+    }
+
+    private func toggleDefault(_ layout: Layout) {
+        store.setDefault(layout.id)
         refresh()
     }
 

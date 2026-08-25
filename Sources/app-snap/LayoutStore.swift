@@ -39,6 +39,21 @@ final class LayoutStore {
         write(current)
     }
 
+    /// Marks the layout with `id` as the default for its fingerprint, clearing
+    /// `isDefault` on every other saved layout that shares that same fingerprint
+    /// (at most one default per monitor set). Passing the id of an already-default
+    /// layout un-defaults it (toggle), leaving that fingerprint with no default.
+    func setDefault(_ id: UUID) {
+        var current = all()
+        guard let target = current.first(where: { $0.id == id }) else { return }
+        let fingerprint = Set(target.fingerprint)
+        let makingDefault = !target.isDefault
+        for index in current.indices where Set(current[index].fingerprint) == fingerprint {
+            current[index].isDefault = current[index].id == id && makingDefault
+        }
+        write(current)
+    }
+
     /// Returns a copy of `layout` with its windows (and the fingerprint/label they
     /// were captured on) replaced by `windows` — everything else (id, name,
     /// createdAt) is preserved so `save(_:)` overwrites it in place rather than
