@@ -21,6 +21,17 @@ again.
 - **Auto-applies** the matching saved layout as soon as it detects your
   connected monitor set has changed to one you've saved — no click needed.
   Toggle this on/off from the menu (on by default).
+- **Default layout per monitor setup** — if you've saved more than one
+  layout for the same set of monitors, mark one as the default so auto-apply
+  (and the menu) always prefer it.
+- **Optionally launches missing apps** when applying a layout, per layout,
+  instead of just skipping windows for apps that aren't running.
+- **Launch at Login**, so app-snap (and auto-apply) are ready from boot.
+- **Undo Last Apply** and a global shortcut (⌃⌥⌘L) to apply the matching
+  layout on demand, independent of the auto-apply trigger.
+- Menu bar icon itself shows whether the current setup has a saved layout,
+  without needing to open the menu.
+- Rename, duplicate, and delete saved layouts from the Manage Layouts window.
 - No Dock icon, no window chrome — just a menu bar item, plus a small window
   for managing saved layouts.
 
@@ -96,14 +107,33 @@ Click the menu bar icon (three stacked rectangles) to:
   with your current window arrangement (asks for confirmation first) instead
   of creating a new one. Use this after you've saved a layout and then
   rearranged things you want to keep.
+- **Set Default Layout** — submenu to mark which layout should be preferred
+  when several saved layouts share the same monitor fingerprint (used by
+  auto-apply, the global shortcut, and the "matches current setup" grouping
+  in Apply/Update). At most one default per fingerprint; picking a new one
+  clears the old.
+- **Launch Missing Apps When Applying** — submenu of per-layout toggles. Off
+  by default (apps that aren't running are just skipped); turn it on for a
+  layout to have applying it also launch those apps, positioning their
+  windows once they're up (bounded to an 8s wait per app).
 - **Manage Layouts…** — opens a window listing all saved layouts, where you
-  can update (overwrite in place) or delete ones you no longer need.
+  can rename, duplicate, update (overwrite in place), toggle default/launch-
+  missing-apps, or delete any of them.
 - **Auto-Apply on Monitor Change** — checkable toggle; on by default. When
   on, app-snap watches for display connect/disconnect events and, once the
-  new setup settles, automatically applies the saved layout matching the new
-  fingerprint (briefly showing a status-bar message rather than a modal
-  alert, so it doesn't interrupt you). If more than one saved layout matches
-  the same monitor set, it picks whichever was most recently applied/updated.
+  new setup settles, automatically applies the matching saved layout
+  (preferring its default if one's set, then whichever was most recently
+  applied/updated), briefly showing a status-bar message rather than a modal
+  alert so it doesn't interrupt you.
+- **Launch at Login** — checkable toggle; registers app-snap to start
+  automatically at login via `SMAppService`. Only shown when running as the
+  proper `.app` bundle.
+- **Undo Last Apply** — reverts to how windows were arranged immediately
+  before the most recent apply (manual, shortcut, or auto). Only available
+  for the current session; nothing is persisted for undo across relaunches.
+- **Apply Matching Layout Now** — applies whichever saved layout matches the
+  current monitor setup right now, also bound to the global shortcut
+  **⌃⌥⌘L** (works even when app-snap isn't the active app).
 
 CLI flags:
 
