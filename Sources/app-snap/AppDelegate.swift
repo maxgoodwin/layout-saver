@@ -21,6 +21,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// sense to undo something from this same running session.
     private var undoSnapshot: [WindowState]?
 
+    /// Fixed global shortcut for "apply whichever saved layout matches the
+    /// current monitor setup, right now" — independent of auto-apply's
+    /// monitor-change trigger. Held as monitor tokens so they can (in principle)
+    /// be torn down; not currently user-configurable.
+    private var globalShortcutMonitor: Any?
+    private var localShortcutMonitor: Any?
+    private static let shortcutModifiers: NSEvent.ModifierFlags = [.control, .option, .command]
+    private static let shortcutKeyCode: UInt16 = 37 // kVK_ANSI_L
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         let menu = NSMenu()
@@ -38,6 +47,67 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             name: NSApplication.didChangeScreenParametersNotification,
             object: nil
         )
+
+        installGlobalShortcut()
+    }
+
+    /// Registers ⌃⌥⌘L to immediately apply whichever saved layout matches the
+    /// current monitor setup — a manual escape hatch independent of
+    /// auto-apply's monitor-change trigger (e.g. if a layout was updated after
+    /// the setup was last detected, or auto-apply is off).
+    ///
+    /// `addGlobalMonitorForEvents` only *observes* key-down events system-wide
+    /// (it can't consume/block them) and, like the window-control APIs
+    /// elsewhere in this file, is gated by the same Accessibility trust
+    /// app-snap already requires — no separate permission needed. The local
+    /// monitor covers the case where one of app-snap's own windows (e.g. Manage
+    /// Layouts) happens to be key, since the global monitor doesn't fire then.
+    private func installGlobalShortcut() {
+        globalShortcutMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            self?.handlePotentialShortcut(event)
+        }
+        localShortcutMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            self?.handlePotentialShortcut(event)
+            return event
+        }
+    }
+
+    private func handlePotentialShortcut(_ event: NSEvent) {
+        guard
+            event.keyCode == Self.shortcutKeyCode,
+            event.modifierFlags.intersection(.deviceIndependentFlagsMask) == Self.shortcutModifiers
+        else { return }
+        applyMatchingLayoutNow()
+    }
+
+    /// Applies whichever saved layout matches the current monitor setup right
+    /// now, using the same default/last-used disambiguation as auto-apply.
+    /// Shared by the global shortcut; shows a status message either way so it's
+    /// clear the shortcut did something (or that there was nothing to apply).
+    @objc private func applyMatchingLayoutNow() {
+        guard AccessibilityPermission.isTrusted else {
+            showStatusMessage("Accessibility access needed")
+            return
+        }
+
+        let fingerprint = DisplayFingerprint.currentFingerprint()
+        let matching = layoutStore.layouts(matching: fingerprint)
+        guard !matching.isEmpty else {
+            showStatusMessage("No saved layout for this setup")
+            return
+        }
+
+        let layout = matching.first(where: \.isDefault)
+            ?? matching.first { $0.id == Preferences.lastUsedLayoutID }
+            ?? matching.first!
+
+        undoSnapshot = WindowManager.captureCurrentWindows()
+
+        Task {
+            let result = await WindowManager.apply(layout.windows, launchMissingApps: layout.launchMissingApps)
+            Preferences.lastUsedLayoutID = layout.id
+            showStatusMessage("Applied “\(layout.name)” (\(result.appliedWindowCount) window\(result.appliedWindowCount == 1 ? "" : "s"))")
+        }
     }
 
     /// Swaps the status-bar glyph between a filled and outline variant depending
@@ -88,6 +158,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(launchMissingItem)
 
         menu.addItem(item("Undo Last Apply", #selector(undoLastApply), enabled: trusted && undoSnapshot != nil))
+
+        let shortcutItem = item("Apply Matching Layout Now", #selector(applyMatchingLayoutNow), enabled: trusted)
+        shortcutItem.keyEquivalent = "l"
+        shortcutItem.keyEquivalentModifierMask = [.control, .option, .command]
+        menu.addItem(shortcutItem)
 
         menu.addItem(.separator())
         let autoApplyItem = item("Auto-Apply on Monitor Change", #selector(toggleAutoApply))
