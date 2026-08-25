@@ -23,60 +23,70 @@ struct LayoutsView: View {
             } else {
                 List {
                     ForEach(layouts) { layout in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                HStack(spacing: 4) {
-                                    Text(layout.name).font(.headline)
-                                    if layout.isDefault {
-                                        Text("Default")
-                                            .font(.caption2)
-                                            .padding(.horizontal, 6)
-                                            .padding(.vertical, 1)
-                                            .background(.tint, in: Capsule())
-                                            .foregroundStyle(.white)
-                                    }
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(spacing: 6) {
+                                Text(layout.name)
+                                    .font(.headline)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                if layout.isDefault {
+                                    Text("Default")
+                                        .font(.caption2)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 1)
+                                        .background(.tint, in: Capsule())
+                                        .foregroundStyle(.white)
+                                        .fixedSize()
                                 }
-                                Text("\(layout.displaysLabel) · \(layout.windows.count) window\(layout.windows.count == 1 ? "" : "s") · saved \(layout.createdAt.formatted(date: .abbreviated, time: .shortened))")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                Spacer(minLength: 0)
                             }
-                            Spacer()
-                            Button {
-                                toggleLaunchMissingApps(layout)
-                            } label: {
-                                Image(systemName: layout.launchMissingApps ? "app.badge.checkmark" : "app.badge")
+                            Text("\(layout.displaysLabel) · \(layout.windows.count) window\(layout.windows.count == 1 ? "" : "s") · saved \(layout.createdAt.formatted(date: .abbreviated, time: .shortened))")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+
+                            HStack(spacing: 8) {
+                                iconButton(
+                                    systemImage: layout.isDefault ? "star.fill" : "star",
+                                    help: layout.isDefault
+                                        ? "Default for its monitor setup — click to unset"
+                                        : "Make default for its monitor setup"
+                                ) { toggleDefault(layout) }
+
+                                iconButton(
+                                    systemImage: layout.launchMissingApps ? "app.badge.checkmark" : "app.badge",
+                                    help: layout.launchMissingApps
+                                        ? "Launch Missing Apps: On — applying this layout will launch apps that aren't running"
+                                        : "Launch Missing Apps: Off — applying this layout skips apps that aren't running"
+                                ) { toggleLaunchMissingApps(layout) }
+
+                                iconButton(systemImage: "pencil", help: "Rename") {
+                                    renameText = layout.name
+                                    layoutPendingRename = layout
+                                }
+
+                                iconButton(systemImage: "arrow.triangle.2.circlepath", help: "Update with current window arrangement") {
+                                    layoutPendingUpdate = layout
+                                }
+
+                                iconButton(systemImage: "plus.square.on.square", help: "Duplicate — creates a copy to use as a starting point for a variant") {
+                                    duplicate(layout)
+                                }
+
+                                Spacer(minLength: 0)
+
+                                iconButton(systemImage: "trash", help: "Delete", role: .destructive) {
+                                    delete(layout)
+                                }
                             }
-                            .buttonStyle(.bordered)
-                            .help(layout.launchMissingApps
-                                ? "Launch Missing Apps: On — applying this layout will launch apps that aren't running"
-                                : "Launch Missing Apps: Off — applying this layout skips apps that aren't running")
-                            Button(layout.isDefault ? "Unset Default" : "Make Default") { toggleDefault(layout) }
-                                .buttonStyle(.bordered)
-                            Button("Rename…") {
-                                renameText = layout.name
-                                layoutPendingRename = layout
-                            }
-                            .buttonStyle(.bordered)
-                            Button("Update…") { layoutPendingUpdate = layout }
-                                .buttonStyle(.bordered)
-                            Button {
-                                duplicate(layout)
-                            } label: {
-                                Image(systemName: "plus.square.on.square")
-                            }
-                            .buttonStyle(.bordered)
-                            .help("Duplicate — creates a copy to use as a starting point for a variant")
-                            Button(role: .destructive) { delete(layout) } label: {
-                                Image(systemName: "trash")
-                            }
-                            .buttonStyle(.bordered)
                         }
+                        .padding(.vertical, 4)
                     }
                     .onDelete(perform: delete)
                 }
             }
         }
-        .frame(minWidth: 480, minHeight: 320)
+        .frame(minWidth: 460, idealWidth: 560, minHeight: 300, idealHeight: 420)
         .onAppear(perform: refresh)
         .alert(
             "Update “\(layoutPendingUpdate?.name ?? "")”?",
@@ -105,6 +115,18 @@ struct LayoutsView: View {
         } message: { _ in
             Text("Choose a new name for this layout.")
         }
+    }
+
+    /// Compact icon-only action button shared by every row, so the action row
+    /// stays a fixed, predictable width instead of a wall of truncated text
+    /// buttons that fight the window for space.
+    private func iconButton(systemImage: String, help: String, role: ButtonRole? = nil, action: @escaping () -> Void) -> some View {
+        Button(role: role, action: action) {
+            Image(systemName: systemImage)
+                .frame(width: 20, height: 20)
+        }
+        .buttonStyle(.bordered)
+        .help(help)
     }
 
     private func refresh() {

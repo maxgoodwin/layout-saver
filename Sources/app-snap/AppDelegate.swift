@@ -410,17 +410,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func openLayoutsWindow() {
         if layoutsWindow == nil {
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 420, height: 320),
-                styleMask: [.titled, .closable, .resizable],
+                contentRect: NSRect(x: 0, y: 0, width: 560, height: 420),
+                styleMask: [.titled, .closable, .resizable, .miniaturizable],
                 backing: .buffered,
                 defer: false
             )
+            // Deliberately no .preferredContentSize sizingOptions: that mode
+            // keeps snapping the window back to the SwiftUI content's ideal
+            // size on every update, which fights the user's manual resizes and
+            // makes the window feel non-resizable even with .resizable set.
             let hostingController = NSHostingController(rootView: LayoutsView(store: layoutStore))
-            hostingController.sizingOptions = [.preferredContentSize]
             window.title = "app-snap Layouts"
             window.contentViewController = hostingController
+            window.contentMinSize = NSSize(width: 460, height: 300)
             window.isReleasedWhenClosed = false
-            window.center()
+            window.setFrameAutosaveName("LayoutsWindow")
+            if window.setFrameUsingName("LayoutsWindow") == false {
+                window.center()
+            }
             layoutsWindow = window
         }
         layoutsWindow?.makeKeyAndOrderFront(nil)
