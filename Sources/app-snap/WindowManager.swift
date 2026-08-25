@@ -50,9 +50,12 @@ enum WindowManager {
 
     /// Restores each saved window's position/size on whichever running app owns
     /// it, matching windows by title first (stable across relaunch) and falling
-    /// back to index. Apps that aren't currently running are skipped, per the
-    /// "position/size of currently-running apps only" scope.
-    static func apply(_ windows: [WindowState]) -> ApplyResult {
+    /// back to index. Apps that aren't currently running are skipped by default
+    /// (the original "position/size of currently-running apps only" scope); pass
+    /// `launchMissingApps: true` to instead launch them and wait for their
+    /// windows before positioning, matching the per-layout `Layout.launchMissingApps`
+    /// setting.
+    static func apply(_ windows: [WindowState], launchMissingApps: Bool = false) async -> ApplyResult {
         var result = ApplyResult()
         let runningByBundleID = Dictionary(
             NSWorkspace.shared.runningApplications
@@ -63,13 +66,15 @@ enum WindowManager {
 
         let byApp = Dictionary(grouping: windows, by: \.appBundleID)
         for (bundleID, savedWindows) in byApp {
-            guard let app = runningByBundleID[bundleID] else {
+            let liveWindows: [AXUIElement]
+            if let app = runningByBundleID[bundleID] {
+                liveWindows = axWindows(of: AXUIElementCreateApplication(app.processIdentifier))
+            } else if launchMissingApps, let launched = await launchAndWaitForWindows(bundleID: bundleID) {
+                liveWindows = launched
+            } else {
                 result.skippedApps.append(savedWindows.first?.appName ?? bundleID)
                 continue
             }
-
-            let axApp = AXUIElementCreateApplication(app.processIdentifier)
-            let liveWindows = axWindows(of: axApp)
 
             for saved in savedWindows {
                 guard let target = matchWindow(saved, in: liveWindows) else {
@@ -85,6 +90,37 @@ enum WindowManager {
         }
 
         return result
+    }
+
+    /// Requests a launch of `bundleID` via NSWorkspace, then polls for it to
+    /// appear in the running-apps list *and* report at least one AX window,
+    /// giving up after a bounded timeout rather than hanging indefinitely on an
+    /// app that fails to launch or never opens a window.
+    private static func launchAndWaitForWindows(
+        bundleID: String,
+        timeout: TimeInterval = 8,
+        pollInterval: TimeInterval = 0.4
+    ) async -> [AXUIElement]? {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return nil }
+
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = false
+        let launched: Bool = await withCheckedContinuation { continuation in
+            NSWorkspace.shared.openApplication(at: url, configuration: configuration) { app, error in
+                continuation.resume(returning: app != nil && error == nil)
+            }
+        }
+        guard launched else { return nil }
+
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == bundleID }) {
+                let windows = axWindows(of: AXUIElementCreateApplication(app.processIdentifier))
+                if !windows.isEmpty { return windows }
+            }
+            try? await Task.sleep(nanoseconds: UInt64(pollInterval * 1_000_000_000))
+        }
+        return nil
     }
 
     private static func matchWindow(_ saved: WindowState, in liveWindows: [AXUIElement]) -> AXUIElement? {

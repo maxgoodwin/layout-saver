@@ -41,6 +41,15 @@ struct LayoutsView: View {
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
+                            Button {
+                                toggleLaunchMissingApps(layout)
+                            } label: {
+                                Image(systemName: layout.launchMissingApps ? "app.badge.checkmark" : "app.badge")
+                            }
+                            .buttonStyle(.bordered)
+                            .help(layout.launchMissingApps
+                                ? "Launch Missing Apps: On — applying this layout will launch apps that aren't running"
+                                : "Launch Missing Apps: Off — applying this layout skips apps that aren't running")
                             Button(layout.isDefault ? "Unset Default" : "Make Default") { toggleDefault(layout) }
                                 .buttonStyle(.bordered)
                             Button("Rename…") {
@@ -103,6 +112,13 @@ struct LayoutsView: View {
 
     private func toggleDefault(_ layout: Layout) {
         store.setDefault(layout.id)
+        refresh()
+    }
+
+    private func toggleLaunchMissingApps(_ layout: Layout) {
+        var updated = layout
+        updated.launchMissingApps.toggle()
+        store.save(updated)
         refresh()
     }
 

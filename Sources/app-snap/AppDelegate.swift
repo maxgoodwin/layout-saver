@@ -65,6 +65,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         defaultItem.submenu = layouts.isEmpty ? nil : buildLayoutMenu(layouts: layouts, matching: fingerprint, action: #selector(setDefaultLayout(_:)), showDefaultMarker: true)
         menu.addItem(defaultItem)
 
+        let launchMissingItem = item("Launch Missing Apps When Applying", nil, enabled: !layouts.isEmpty)
+        launchMissingItem.submenu = layouts.isEmpty ? nil : buildLayoutMenu(layouts: layouts, matching: fingerprint, action: #selector(toggleLaunchMissingApps(_:)), showLaunchMissingMarker: true)
+        menu.addItem(launchMissingItem)
+
         menu.addItem(.separator())
         let autoApplyItem = item("Auto-Apply on Monitor Change", #selector(toggleAutoApply))
         autoApplyItem.state = Preferences.autoApplyEnabled ? .on : .off
@@ -78,9 +82,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Builds a submenu listing every saved layout (current-setup matches grouped on
     /// top), wired to the given action. Shared by "Apply Layout", "Update Layout",
-    /// and "Set Default Layout" — `showDefaultMarker` puts a checkmark on whichever
-    /// layout is currently the default for its fingerprint (used by the latter).
-    private func buildLayoutMenu(layouts: [Layout], matching fingerprint: [String], action: Selector, showDefaultMarker: Bool = false) -> NSMenu {
+    /// "Set Default Layout" (`showDefaultMarker`), and "Launch Missing Apps When
+    /// Applying" (`showLaunchMissingMarker`) — each marker option puts a checkmark
+    /// on layouts where that respective flag is set.
+    private func buildLayoutMenu(
+        layouts: [Layout],
+        matching fingerprint: [String],
+        action: Selector,
+        showDefaultMarker: Bool = false,
+        showLaunchMissingMarker: Bool = false
+    ) -> NSMenu {
         let submenu = NSMenu()
         let matchSet = Set(fingerprint)
         // Default-for-its-fingerprint layouts sort first within each group.
@@ -93,6 +104,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menuItem.target = self
             menuItem.representedObject = layout.id
             if showDefaultMarker { menuItem.state = layout.isDefault ? .on : .off }
+            if showLaunchMissingMarker { menuItem.state = layout.launchMissingApps ? .on : .off }
             submenu.addItem(menuItem)
         }
 
@@ -161,9 +173,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             ?? matching.first { $0.id == Preferences.lastUsedLayoutID }
             ?? matching.first!
 
-        let result = WindowManager.apply(layout.windows)
-        Preferences.lastUsedLayoutID = layout.id
-        showStatusMessage("Auto-applied “\(layout.name)” (\(result.appliedWindowCount) window\(result.appliedWindowCount == 1 ? "" : "s"))")
+        Task {
+            let result = await WindowManager.apply(layout.windows, launchMissingApps: layout.launchMissingApps)
+            Preferences.lastUsedLayoutID = layout.id
+            showStatusMessage("Auto-applied “\(layout.name)” (\(result.appliedWindowCount) window\(result.appliedWindowCount == 1 ? "" : "s"))")
+        }
     }
 
     /// Briefly shows a status-bar title (rather than a modal alert, which would
@@ -211,14 +225,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let layout = layoutStore.all().first(where: { $0.id == id })
         else { return }
 
-        let result = WindowManager.apply(layout.windows)
-        Preferences.lastUsedLayoutID = layout.id
+        Task {
+            let result = await WindowManager.apply(layout.windows, launchMissingApps: layout.launchMissingApps)
+            Preferences.lastUsedLayoutID = layout.id
 
-        var body = "Applied \(result.appliedWindowCount) window\(result.appliedWindowCount == 1 ? "" : "s")."
-        if !result.skippedApps.isEmpty {
-            body += " Not running: \(result.skippedApps.joined(separator: ", "))."
+            var body = "Applied \(result.appliedWindowCount) window\(result.appliedWindowCount == 1 ? "" : "s")."
+            if !result.skippedApps.isEmpty {
+                body += " Not running: \(result.skippedApps.joined(separator: ", "))."
+            }
+            inform(title: "Applied “\(layout.name)”", body: body)
         }
-        inform(title: "Applied “\(layout.name)”", body: body)
+    }
+
+    @objc private func toggleLaunchMissingApps(_ sender: NSMenuItem) {
+        guard
+            let id = sender.representedObject as? UUID,
+            var layout = layoutStore.all().first(where: { $0.id == id })
+        else { return }
+        layout.launchMissingApps.toggle()
+        layoutStore.save(layout)
     }
 
     @objc private func setDefaultLayout(_ sender: NSMenuItem) {

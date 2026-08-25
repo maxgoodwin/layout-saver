@@ -27,6 +27,11 @@ struct Layout: Codable, Identifiable {
     /// grouping). At most one layout per fingerprint should be marked default —
     /// enforced by `LayoutStore.setDefault(_:)`, not by this type itself.
     var isDefault: Bool
+    /// When true, applying this layout launches any of its saved apps that
+    /// aren't currently running (rather than just skipping them), then positions
+    /// their windows once they've launched. Off by default, since launching apps
+    /// automatically is a bigger side effect than just moving windows.
+    var launchMissingApps: Bool
 
     init(name: String, fingerprint: [String], displaysLabel: String, windows: [WindowState]) {
         self.id = UUID()
@@ -36,10 +41,12 @@ struct Layout: Codable, Identifiable {
         self.createdAt = Date()
         self.windows = windows
         self.isDefault = false
+        self.launchMissingApps = false
     }
 
-    /// Custom decoding so layouts saved before `isDefault` existed (plain JSON
-    /// with no such key) still decode cleanly, defaulting to `false`.
+    /// Custom decoding so layouts saved before `isDefault`/`launchMissingApps`
+    /// existed (plain JSON with no such keys) still decode cleanly, defaulting
+    /// both to `false`.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
@@ -49,5 +56,6 @@ struct Layout: Codable, Identifiable {
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         windows = try container.decode([WindowState].self, forKey: .windows)
         isDefault = try container.decodeIfPresent(Bool.self, forKey: .isDefault) ?? false
+        launchMissingApps = try container.decodeIfPresent(Bool.self, forKey: .launchMissingApps) ?? false
     }
 }
