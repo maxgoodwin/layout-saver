@@ -39,6 +39,33 @@ final class LayoutStore {
         write(current)
     }
 
+    /// Saves a copy of `layout` as a new independent entry — a fresh id and
+    /// createdAt, name suffixed with " copy" (deduplicated if that name is
+    /// already taken), and isDefault cleared (a fingerprint should still have
+    /// at most one default, and blindly copying the flag would create two).
+    /// Everything else — windows, fingerprint, displaysLabel, launchMissingApps —
+    /// is copied as-is, as a starting point for a variant.
+    @discardableResult
+    func duplicate(_ layout: Layout) -> Layout {
+        let existingNames = Set(all().map(\.name))
+        var candidateName = "\(layout.name) copy"
+        var suffix = 2
+        while existingNames.contains(candidateName) {
+            candidateName = "\(layout.name) copy \(suffix)"
+            suffix += 1
+        }
+
+        var copy = Layout(
+            name: candidateName,
+            fingerprint: layout.fingerprint,
+            displaysLabel: layout.displaysLabel,
+            windows: layout.windows
+        )
+        copy.launchMissingApps = layout.launchMissingApps
+        save(copy)
+        return copy
+    }
+
     /// Marks the layout with `id` as the default for its fingerprint, clearing
     /// `isDefault` on every other saved layout that shares that same fingerprint
     /// (at most one default per monitor set). Passing the id of an already-default

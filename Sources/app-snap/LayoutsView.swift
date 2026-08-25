@@ -59,6 +59,13 @@ struct LayoutsView: View {
                             .buttonStyle(.bordered)
                             Button("Update…") { layoutPendingUpdate = layout }
                                 .buttonStyle(.bordered)
+                            Button {
+                                duplicate(layout)
+                            } label: {
+                                Image(systemName: "plus.square.on.square")
+                            }
+                            .buttonStyle(.bordered)
+                            .help("Duplicate — creates a copy to use as a starting point for a variant")
                             Button(role: .destructive) { delete(layout) } label: {
                                 Image(systemName: "trash")
                             }
@@ -112,6 +119,11 @@ struct LayoutsView: View {
 
     private func toggleDefault(_ layout: Layout) {
         store.setDefault(layout.id)
+        refresh()
+    }
+
+    private func duplicate(_ layout: Layout) {
+        store.duplicate(layout)
         refresh()
     }
 
