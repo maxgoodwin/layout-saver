@@ -7,6 +7,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let layoutStore = LayoutStore()
     private var layoutsWindow: NSWindow?
 
+    /// The monitor fingerprint as of the last auto-apply check, so we only react to
+    /// an actual *change* in the connected display set rather than re-triggering on
+    /// every debounced notification while it stays the same.
+    private var lastFingerprint: Set<String> = []
+    private var autoApplyDebounceTimer: Timer?
+    private var statusMessageResetTimer: Timer?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.button?.image = NSImage(systemSymbolName: "rectangle.3.group", accessibilityDescription: "app-snap")
@@ -14,6 +21,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.delegate = self
         menu.autoenablesItems = false
         statusItem.menu = menu
+
+        // Baseline the fingerprint at launch so we react to *changes* going
+        // forward, not to whatever setup happens to already be connected.
+        lastFingerprint = Set(DisplayFingerprint.currentFingerprint())
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(screenParametersChanged),
+            name: NSApplication.didChangeScreenParametersNotification,
+            object: nil
+        )
     }
 
     // MARK: - NSMenuDelegate
@@ -43,6 +60,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let updateItem = item("Update Layout", nil, enabled: trusted && !layouts.isEmpty)
         updateItem.submenu = layouts.isEmpty ? nil : buildLayoutMenu(layouts: layouts, matching: fingerprint, action: #selector(updateLayout(_:)))
         menu.addItem(updateItem)
+
+        menu.addItem(.separator())
+        let autoApplyItem = item("Auto-Apply on Monitor Change", #selector(toggleAutoApply))
+        autoApplyItem.state = Preferences.autoApplyEnabled ? .on : .off
+        menu.addItem(autoApplyItem)
 
         menu.addItem(.separator())
         menu.addItem(item("Manage Layouts…", #selector(openLayoutsWindow)))
@@ -95,6 +117,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func grantAccess() {
         AccessibilityPermission.requestAccess()
         AccessibilityPermission.openSystemSettings()
+    }
+
+    @objc private func toggleAutoApply() {
+        Preferences.autoApplyEnabled.toggle()
+    }
+
+    // MARK: - Auto-apply on monitor change
+
+    /// macOS fires `didChangeScreenParametersNotification` repeatedly while a
+    /// display is connecting/disconnecting (as the OS renegotiates modes), so we
+    /// debounce and only act once things settle.
+    @objc private func screenParametersChanged() {
+        autoApplyDebounceTimer?.invalidate()
+        autoApplyDebounceTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { [weak self] _ in
+            Task { @MainActor in self?.checkForAutoApply() }
+        }
+    }
+
+    private func checkForAutoApply() {
+        let fingerprint = Set(DisplayFingerprint.currentFingerprint())
+        guard fingerprint != lastFingerprint else { return }
+        lastFingerprint = fingerprint
+
+        guard Preferences.autoApplyEnabled, AccessibilityPermission.isTrusted else { return }
+
+        let matching = layoutStore.layouts(matching: Array(fingerprint))
+        guard !matching.isEmpty else { return }
+
+        // If several saved layouts share this fingerprint, prefer the one that was
+        // most recently applied/updated (rather than guessing or applying all of
+        // them); otherwise there's only one candidate.
+        let layout = matching.first { $0.id == Preferences.lastUsedLayoutID } ?? matching.first!
+
+        let result = WindowManager.apply(layout.windows)
+        Preferences.lastUsedLayoutID = layout.id
+        showStatusMessage("Auto-applied “\(layout.name)” (\(result.appliedWindowCount) window\(result.appliedWindowCount == 1 ? "" : "s"))")
+    }
+
+    /// Briefly shows a status-bar title (rather than a modal alert, which would
+    /// interrupt whatever the user is doing right as they reconnect a monitor).
+    private func showStatusMessage(_ text: String) {
+        statusMessageResetTimer?.invalidate()
+        statusItem.button?.title = " \(text)"
+        statusMessageResetTimer = Timer.scheduledTimer(withTimeInterval: 4, repeats: false) { [weak self] _ in
+            Task { @MainActor in self?.statusItem.button?.title = "" }
+        }
     }
 
     @objc private func saveCurrentLayout() {

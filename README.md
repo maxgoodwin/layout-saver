@@ -1,13 +1,14 @@
 # app-snap
 
 A tiny macOS menu bar app that saves the arrangement of your open windows —
-across however many monitors you have connected — and restores it later, either
-with one click or (in a future release) automatically when it detects you've
-switched monitor setups.
+across however many monitors you have connected — and restores it later,
+either with one click or automatically as soon as it detects you've switched
+to a monitor setup you've saved a layout for.
 
 Built for the "different monitors at home vs. the office" problem: save one
 layout for each setup, and app-snap remembers which layout goes with which set
-of physical displays.
+of physical displays — then applies it the moment it sees that set connected
+again.
 
 ## Features
 
@@ -17,11 +18,11 @@ of physical displays.
   office layouts don't clash.
 - Applies a saved layout with one click from the menu bar. Apps that aren't
   currently running are skipped rather than launched.
+- **Auto-applies** the matching saved layout as soon as it detects your
+  connected monitor set has changed to one you've saved — no click needed.
+  Toggle this on/off from the menu (on by default).
 - No Dock icon, no window chrome — just a menu bar item, plus a small window
   for managing saved layouts.
-
-Auto-apply-on-monitor-change (no click required) is planned but not in this
-release yet — see [Roadmap](#roadmap).
 
 ## Install
 
@@ -97,6 +98,12 @@ Click the menu bar icon (three stacked rectangles) to:
   rearranged things you want to keep.
 - **Manage Layouts…** — opens a window listing all saved layouts, where you
   can update (overwrite in place) or delete ones you no longer need.
+- **Auto-Apply on Monitor Change** — checkable toggle; on by default. When
+  on, app-snap watches for display connect/disconnect events and, once the
+  new setup settles, automatically applies the saved layout matching the new
+  fingerprint (briefly showing a status-bar message rather than a modal
+  alert, so it doesn't interrupt you). If more than one saved layout matches
+  the same monitor set, it picks whichever was most recently applied/updated.
 
 CLI flags:
 
@@ -130,8 +137,6 @@ Requires macOS 14+ and the Swift 5.9+ toolchain (Xcode or Command Line Tools).
 
 ## Roadmap
 
-- Automatically apply the matching layout when a known monitor setup is
-  detected (connect/disconnect), instead of requiring a menu click.
 - Developer ID signed, notarized `.app` release (downloadable, and eventually
   a Homebrew Cask) for a stable Accessibility grant that survives upgrades,
   and Gatekeeper-clean downloads.
