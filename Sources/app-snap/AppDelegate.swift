@@ -1,4 +1,5 @@
 import AppKit
+import ServiceManagement
 import SwiftUI
 
 @MainActor
@@ -74,6 +75,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         autoApplyItem.state = Preferences.autoApplyEnabled ? .on : .off
         menu.addItem(autoApplyItem)
 
+        // Only offered when running as a real .app bundle (has a bundle
+        // identifier) — SMAppService.mainApp registers *this* bundle as a login
+        // item, which is meaningless for a bare SwiftPM binary invoked directly
+        // or via `brew services` (which already manages its own launchd job).
+        if Bundle.main.bundleIdentifier != nil {
+            let loginItem = item("Launch at Login", #selector(toggleLaunchAtLogin))
+            loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
+            menu.addItem(loginItem)
+        }
+
         menu.addItem(.separator())
         menu.addItem(item("Manage Layouts…", #selector(openLayoutsWindow)))
         menu.addItem(.separator())
@@ -142,6 +153,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func toggleAutoApply() {
         Preferences.autoApplyEnabled.toggle()
+    }
+
+    @objc private func toggleLaunchAtLogin() {
+        do {
+            if SMAppService.mainApp.status == .enabled {
+                try SMAppService.mainApp.unregister()
+            } else {
+                try SMAppService.mainApp.register()
+            }
+        } catch {
+            inform(title: "Couldn't Update Login Item", body: error.localizedDescription)
+        }
     }
 
     // MARK: - Auto-apply on monitor change
