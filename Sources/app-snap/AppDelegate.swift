@@ -15,6 +15,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var autoApplyDebounceTimer: Timer?
     private var statusMessageResetTimer: Timer?
 
+    /// Snapshot of every window's position/size taken immediately before the
+    /// most recent apply (manual or auto), so "Undo Last Apply" can put things
+    /// back. In-memory only — intentionally not persisted, since it only makes
+    /// sense to undo something from this same running session.
+    private var undoSnapshot: [WindowState]?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         let menu = NSMenu()
@@ -80,6 +86,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let launchMissingItem = item("Launch Missing Apps When Applying", nil, enabled: !layouts.isEmpty)
         launchMissingItem.submenu = layouts.isEmpty ? nil : buildLayoutMenu(layouts: layouts, matching: fingerprint, action: #selector(toggleLaunchMissingApps(_:)), showLaunchMissingMarker: true)
         menu.addItem(launchMissingItem)
+
+        menu.addItem(item("Undo Last Apply", #selector(undoLastApply), enabled: trusted && undoSnapshot != nil))
 
         menu.addItem(.separator())
         let autoApplyItem = item("Auto-Apply on Monitor Change", #selector(toggleAutoApply))
@@ -208,6 +216,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             ?? matching.first { $0.id == Preferences.lastUsedLayoutID }
             ?? matching.first!
 
+        undoSnapshot = WindowManager.captureCurrentWindows()
+
         Task {
             let result = await WindowManager.apply(layout.windows, launchMissingApps: layout.launchMissingApps)
             Preferences.lastUsedLayoutID = layout.id
@@ -260,6 +270,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let layout = layoutStore.all().first(where: { $0.id == id })
         else { return }
 
+        undoSnapshot = WindowManager.captureCurrentWindows()
+
         Task {
             let result = await WindowManager.apply(layout.windows, launchMissingApps: layout.launchMissingApps)
             Preferences.lastUsedLayoutID = layout.id
@@ -269,6 +281,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 body += " Not running: \(result.skippedApps.joined(separator: ", "))."
             }
             inform(title: "Applied “\(layout.name)”", body: body)
+        }
+    }
+
+    @objc private func undoLastApply() {
+        guard let snapshot = undoSnapshot else { return }
+        undoSnapshot = nil
+        Task {
+            let result = await WindowManager.apply(snapshot)
+            showStatusMessage("Undid last apply (\(result.appliedWindowCount) window\(result.appliedWindowCount == 1 ? "" : "s"))")
         }
     }
 
