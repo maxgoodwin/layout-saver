@@ -91,8 +91,12 @@ Click the menu bar icon (three stacked rectangles) to:
   size on your current monitor setup, and asks you to name it.
 - **Apply Layout** — a submenu of your saved layouts, with ones matching your
   *current* monitor setup listed first.
+- **Update Layout** — same submenu, but overwrites the chosen saved layout
+  with your current window arrangement (asks for confirmation first) instead
+  of creating a new one. Use this after you've saved a layout and then
+  rearranged things you want to keep.
 - **Manage Layouts…** — opens a window listing all saved layouts, where you
-  can delete ones you no longer need.
+  can update (overwrite in place) or delete ones you no longer need.
 
 CLI flags:
 

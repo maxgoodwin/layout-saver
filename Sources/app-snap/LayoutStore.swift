@@ -39,6 +39,18 @@ final class LayoutStore {
         write(current)
     }
 
+    /// Returns a copy of `layout` with its windows (and the fingerprint/label they
+    /// were captured on) replaced by `windows` — everything else (id, name,
+    /// createdAt) is preserved so `save(_:)` overwrites it in place rather than
+    /// creating a second entry.
+    static func updating(_ layout: Layout, withCurrentWindows windows: [WindowState]) -> Layout {
+        var updated = layout
+        updated.windows = windows
+        updated.fingerprint = DisplayFingerprint.currentFingerprint()
+        updated.displaysLabel = DisplayFingerprint.currentLabel()
+        return updated
+    }
+
     private func write(_ layouts: [Layout]) {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601

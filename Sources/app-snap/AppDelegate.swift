@@ -37,8 +37,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let layouts = layoutStore.all()
         let applyItem = item("Apply Layout", nil, enabled: trusted && !layouts.isEmpty)
-        applyItem.submenu = layouts.isEmpty ? nil : buildApplyMenu(layouts: layouts, matching: fingerprint)
+        applyItem.submenu = layouts.isEmpty ? nil : buildLayoutMenu(layouts: layouts, matching: fingerprint, action: #selector(applyLayout(_:)))
         menu.addItem(applyItem)
+
+        let updateItem = item("Update Layout", nil, enabled: trusted && !layouts.isEmpty)
+        updateItem.submenu = layouts.isEmpty ? nil : buildLayoutMenu(layouts: layouts, matching: fingerprint, action: #selector(updateLayout(_:)))
+        menu.addItem(updateItem)
 
         menu.addItem(.separator())
         menu.addItem(item("Manage Layouts…", #selector(openLayoutsWindow)))
@@ -46,14 +50,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(item("Quit app-snap", #selector(quit), keyEquivalent: "q"))
     }
 
-    private func buildApplyMenu(layouts: [Layout], matching fingerprint: [String]) -> NSMenu {
+    /// Builds a submenu listing every saved layout (current-setup matches grouped on
+    /// top), wired to the given action. Shared by "Apply Layout" and "Update Layout".
+    private func buildLayoutMenu(layouts: [Layout], matching fingerprint: [String], action: Selector) -> NSMenu {
         let submenu = NSMenu()
         let matchSet = Set(fingerprint)
         let matching = layouts.filter { Set($0.fingerprint) == matchSet }
         let others = layouts.filter { Set($0.fingerprint) != matchSet }
 
         func addLayout(_ layout: Layout) {
-            let menuItem = NSMenuItem(title: "\(layout.name) (\(layout.displaysLabel))", action: #selector(applyLayout(_:)), keyEquivalent: "")
+            let menuItem = NSMenuItem(title: "\(layout.name) (\(layout.displaysLabel))", action: action, keyEquivalent: "")
             menuItem.target = self
             menuItem.representedObject = layout.id
             submenu.addItem(menuItem)
@@ -134,6 +140,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             body += " Not running: \(result.skippedApps.joined(separator: ", "))."
         }
         inform(title: "Applied “\(layout.name)”", body: body)
+    }
+
+    @objc private func updateLayout(_ sender: NSMenuItem) {
+        guard
+            let id = sender.representedObject as? UUID,
+            let layout = layoutStore.all().first(where: { $0.id == id })
+        else { return }
+
+        guard confirmUpdate(of: layout) else { return }
+
+        let updated = LayoutStore.updating(layout, withCurrentWindows: WindowManager.captureCurrentWindows())
+        layoutStore.save(updated)
+        inform(title: "Layout Updated", body: "Updated “\(layout.name)” with \(updated.windows.count) window\(updated.windows.count == 1 ? "" : "s").")
+    }
+
+    /// Shared confirmation prompt for overwriting a saved layout, used by both the
+    /// menu bar's "Update Layout" submenu and the Manage Layouts window.
+    private func confirmUpdate(of layout: Layout) -> Bool {
+        let alert = NSAlert()
+        alert.messageText = "Update “\(layout.name)”?"
+        alert.informativeText = "This overwrites the saved layout with your current window arrangement (\(DisplayFingerprint.currentLabel()))."
+        alert.addButton(withTitle: "Update")
+        alert.addButton(withTitle: "Cancel")
+        NSApp.activate(ignoringOtherApps: true)
+        return alert.runModal() == .alertFirstButtonReturn
     }
 
     @objc private func openLayoutsWindow() {
