@@ -17,11 +17,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem.button?.image = NSImage(systemSymbolName: "rectangle.3.group", accessibilityDescription: "app-snap")
         let menu = NSMenu()
         menu.delegate = self
         menu.autoenablesItems = false
         statusItem.menu = menu
+        updateStatusIcon()
 
         // Baseline the fingerprint at launch so we react to *changes* going
         // forward, not to whatever setup happens to already be connected.
@@ -34,10 +34,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         )
     }
 
+    /// Swaps the status-bar glyph between a filled and outline variant depending
+    /// on whether the *current* monitor setup has any saved layout at all — a
+    /// quick visual nudge to save one, discoverable without opening the menu.
+    private func updateStatusIcon() {
+        let hasMatch = !layoutStore.layouts(matching: DisplayFingerprint.currentFingerprint()).isEmpty
+        let symbolName = hasMatch ? "rectangle.3.group.fill" : "rectangle.3.group"
+        let description = hasMatch ? "app-snap (layout saved for this setup)" : "app-snap (no layout saved for this setup)"
+        statusItem.button?.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: description)
+    }
+
     // MARK: - NSMenuDelegate
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
+        updateStatusIcon()
 
         let trusted = AccessibilityPermission.isTrusted
         let fingerprint = DisplayFingerprint.currentFingerprint()
@@ -183,6 +194,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let fingerprint = Set(DisplayFingerprint.currentFingerprint())
         guard fingerprint != lastFingerprint else { return }
         lastFingerprint = fingerprint
+        updateStatusIcon()
 
         guard Preferences.autoApplyEnabled, AccessibilityPermission.isTrusted else { return }
 
