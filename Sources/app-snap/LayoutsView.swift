@@ -4,6 +4,8 @@ struct LayoutsView: View {
     let store: LayoutStore
     @State private var layouts: [Layout] = []
     @State private var layoutPendingUpdate: Layout?
+    @State private var layoutPendingRename: Layout?
+    @State private var renameText: String = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -29,6 +31,11 @@ struct LayoutsView: View {
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
+                            Button("Rename…") {
+                                renameText = layout.name
+                                layoutPendingRename = layout
+                            }
+                            .buttonStyle(.bordered)
                             Button("Update…") { layoutPendingUpdate = layout }
                                 .buttonStyle(.bordered)
                             Button(role: .destructive) { delete(layout) } label: {
@@ -56,6 +63,20 @@ struct LayoutsView: View {
         } message: { layout in
             Text("This overwrites the saved layout with your current window arrangement (\(DisplayFingerprint.currentLabel())).")
         }
+        .alert(
+            "Rename Layout",
+            isPresented: Binding(
+                get: { layoutPendingRename != nil },
+                set: { if !$0 { layoutPendingRename = nil } }
+            ),
+            presenting: layoutPendingRename
+        ) { layout in
+            TextField("Name", text: $renameText)
+            Button("Rename") { rename(layout, to: renameText) }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("Choose a new name for this layout.")
+        }
     }
 
     private func refresh() {
@@ -65,6 +86,15 @@ struct LayoutsView: View {
     private func update(_ layout: Layout) {
         let updated = LayoutStore.updating(layout, withCurrentWindows: WindowManager.captureCurrentWindows())
         store.save(updated)
+        refresh()
+    }
+
+    private func rename(_ layout: Layout, to newName: String) {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        var renamed = layout
+        renamed.name = trimmed
+        store.save(renamed)
         refresh()
     }
 
