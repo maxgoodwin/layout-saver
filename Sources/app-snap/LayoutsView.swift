@@ -1,14 +1,73 @@
 import SwiftUI
 
+/// One action available per saved layout, and what it does — shared source of
+/// truth for both the icon buttons' tooltips and the "what do these do?"
+/// legend popover, so the two can't drift out of sync.
+private struct RowAction {
+    var systemImage: String
+    var title: String
+    var explanation: String
+
+    static let makeDefault = RowAction(
+        systemImage: "star",
+        title: "Make Default",
+        explanation: "When several saved layouts match the same monitors, the default is the one auto-apply and the global shortcut use, instead of guessing."
+    )
+    static let launchMissingApps = RowAction(
+        systemImage: "app.badge",
+        title: "Launch Missing Apps",
+        explanation: "Normally, applying a layout skips apps that aren't running. Turn this on for a layout to also launch those apps first, then position their windows."
+    )
+    static let rename = RowAction(
+        systemImage: "pencil",
+        title: "Rename",
+        explanation: "Changes this layout's name only — the saved window positions are untouched."
+    )
+    static let update = RowAction(
+        systemImage: "arrow.triangle.2.circlepath",
+        title: "Update",
+        explanation: "Overwrites this layout's saved windows with your current on-screen arrangement, keeping the same name. Use this after rearranging things you want to keep."
+    )
+    static let duplicate = RowAction(
+        systemImage: "plus.square.on.square",
+        title: "Duplicate",
+        explanation: "Creates an independent copy of this layout, useful as a starting point for a variant (e.g. \"Office\" → \"Office copy\" for a presenting setup)."
+    )
+    static let delete = RowAction(
+        systemImage: "trash",
+        title: "Delete",
+        explanation: "Permanently removes this saved layout. It won't be offered by Apply, auto-apply, or the global shortcut anymore."
+    )
+
+    static let all: [RowAction] = [.makeDefault, .launchMissingApps, .rename, .update, .duplicate, .delete]
+}
+
 struct LayoutsView: View {
     let store: LayoutStore
     @State private var layouts: [Layout] = []
     @State private var layoutPendingUpdate: Layout?
     @State private var layoutPendingRename: Layout?
     @State private var renameText: String = ""
+    @State private var showActionsLegend = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            if !layouts.isEmpty {
+                HStack(spacing: 4) {
+                    Spacer()
+                    Text("What do these icons do?")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Image(systemName: "info.circle")
+                        .foregroundStyle(.secondary)
+                        .onHover { hovering in showActionsLegend = hovering }
+                        .popover(isPresented: $showActionsLegend, arrowEdge: .bottom) {
+                            actionsLegend
+                        }
+                }
+                .padding(.horizontal, 12)
+                .padding(.top, 8)
+            }
             if layouts.isEmpty {
                 VStack(spacing: 8) {
                     Text("No saved layouts yet")
@@ -48,34 +107,30 @@ struct LayoutsView: View {
                             HStack(spacing: 8) {
                                 iconButton(
                                     systemImage: layout.isDefault ? "star.fill" : "star",
-                                    help: layout.isDefault
-                                        ? "Default for its monitor setup — click to unset"
-                                        : "Make default for its monitor setup"
+                                    help: (layout.isDefault ? "Unset Default" : RowAction.makeDefault.title) + " — " + RowAction.makeDefault.explanation
                                 ) { toggleDefault(layout) }
 
                                 iconButton(
                                     systemImage: layout.launchMissingApps ? "app.badge.checkmark" : "app.badge",
-                                    help: layout.launchMissingApps
-                                        ? "Launch Missing Apps: On — applying this layout will launch apps that aren't running"
-                                        : "Launch Missing Apps: Off — applying this layout skips apps that aren't running"
+                                    help: RowAction.launchMissingApps.title + (layout.launchMissingApps ? ": On" : ": Off") + " — " + RowAction.launchMissingApps.explanation
                                 ) { toggleLaunchMissingApps(layout) }
 
-                                iconButton(systemImage: "pencil", help: "Rename") {
+                                iconButton(systemImage: RowAction.rename.systemImage, help: RowAction.rename.title + " — " + RowAction.rename.explanation) {
                                     renameText = layout.name
                                     layoutPendingRename = layout
                                 }
 
-                                iconButton(systemImage: "arrow.triangle.2.circlepath", help: "Update with current window arrangement") {
+                                iconButton(systemImage: RowAction.update.systemImage, help: RowAction.update.title + " — " + RowAction.update.explanation) {
                                     layoutPendingUpdate = layout
                                 }
 
-                                iconButton(systemImage: "plus.square.on.square", help: "Duplicate — creates a copy to use as a starting point for a variant") {
+                                iconButton(systemImage: RowAction.duplicate.systemImage, help: RowAction.duplicate.title + " — " + RowAction.duplicate.explanation) {
                                     duplicate(layout)
                                 }
 
                                 Spacer(minLength: 0)
 
-                                iconButton(systemImage: "trash", help: "Delete", role: .destructive) {
+                                iconButton(systemImage: RowAction.delete.systemImage, help: RowAction.delete.title + " — " + RowAction.delete.explanation, role: .destructive) {
                                     delete(layout)
                                 }
                             }
@@ -127,6 +182,30 @@ struct LayoutsView: View {
         }
         .buttonStyle(.bordered)
         .help(help)
+    }
+
+    /// Popover content for the (i) next to "What do these icons do?" — lists
+    /// every row action with its icon, name, and a plain-English explanation,
+    /// so someone unsure what "Update" vs. "Duplicate" (say) does doesn't have
+    /// to hover each icon one at a time to find out.
+    private var actionsLegend: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ForEach(Array(RowAction.all.enumerated()), id: \.offset) { _, action in
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: action.systemImage)
+                        .frame(width: 20)
+                        .foregroundStyle(action.systemImage == "trash" ? .red : .primary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(action.title).font(.headline)
+                        Text(action.explanation)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .padding()
+        .frame(width: 340)
     }
 
     private func refresh() {
