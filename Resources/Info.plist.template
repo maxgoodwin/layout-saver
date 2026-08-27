@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>App Snap</string>
+    <string>Layout Saver</string>
     <key>CFBundleDisplayName</key>
-    <string>App Snap</string>
+    <string>Layout Saver</string>
     <key>CFBundleIdentifier</key>
-    <string>com.maxgoodwin.app-snap</string>
+    <string>com.maxgoodwin.layout-saver</string>
     <key>CFBundleExecutable</key>
-    <string>app-snap</string>
+    <string>layout-saver</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>

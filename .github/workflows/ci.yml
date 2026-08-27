@@ -13,8 +13,8 @@ jobs:
       - name: Build
         run: swift build -v
       - name: Version smoke test
-        run: .build/debug/app-snap --version
+        run: .build/debug/layout-saver --version
       - name: Build app bundle
         run: Scripts/build-app.sh
         env:
-          APP_SNAP_INSTALL_DIR: /tmp/app-snap-ci-applications
+          LAYOUT_SAVER_INSTALL_DIR: /tmp/layout-saver-ci-applications

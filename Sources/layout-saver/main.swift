@@ -4,13 +4,13 @@ let version = "0.1.0"
 
 func printUsage() {
     print("""
-    app-snap \(version)
+    layout-saver \(version)
     Save the arrangement of your open windows per monitor setup, and restore it later.
 
     Usage:
-      app-snap             Run as a menu bar app (default)
-      app-snap --version   Print the version and exit
-      app-snap --help      Show this message
+      layout-saver             Run as a menu bar app (default)
+      layout-saver --version   Print the version and exit
+      layout-saver --help      Show this message
     """)
 }
 

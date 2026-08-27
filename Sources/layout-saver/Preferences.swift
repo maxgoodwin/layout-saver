@@ -21,7 +21,7 @@ enum Preferences {
         set { defaults.set(newValue?.uuidString, forKey: Key.lastUsedLayoutID) }
     }
 
-    /// Whether app-snap should automatically apply a matching saved layout when it
+    /// Whether layout-saver should automatically apply a matching saved layout when it
     /// detects the connected monitor set has changed. Defaults to on; there's no
     /// stored value yet the first time this is read, so fall back to `true` rather
     /// than UserDefaults' usual `false` default for missing Bool keys.

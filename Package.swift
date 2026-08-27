@@ -2,14 +2,14 @@
 import PackageDescription
 
 let package = Package(
-    name: "app-snap",
+    name: "layout-saver",
     platforms: [
         .macOS(.v14)
     ],
     targets: [
         .executableTarget(
-            name: "app-snap",
-            path: "Sources/app-snap"
+            name: "layout-saver",
+            path: "Sources/layout-saver"
         )
     ]
 )

@@ -1,4 +1,4 @@
-# app-snap
+# layout-saver
 
 A tiny macOS menu bar app that saves the arrangement of your open windows —
 across however many monitors you have connected — and restores it later,
@@ -6,7 +6,7 @@ either with one click or automatically as soon as it detects you've switched
 to a monitor setup you've saved a layout for.
 
 Built for the "different monitors at home vs. the office" problem: save one
-layout for each setup, and app-snap remembers which layout goes with which set
+layout for each setup, and layout-saver remembers which layout goes with which set
 of physical displays — then applies it the moment it sees that set connected
 again.
 
@@ -26,7 +26,7 @@ again.
   (and the menu) always prefer it.
 - **Optionally launches missing apps** when applying a layout, per layout,
   instead of just skipping windows for apps that aren't running.
-- **Launch at Login**, so app-snap (and auto-apply) are ready from boot.
+- **Launch at Login**, so layout-saver (and auto-apply) are ready from boot.
 - **Undo Last Apply** and a global shortcut (⌃⌥⌘L) to apply the matching
   layout on demand, independent of the auto-apply trigger.
 - Menu bar icon itself shows whether the current setup has a saved layout,
@@ -37,7 +37,7 @@ again.
 
 ## Install
 
-There are two ways to run app-snap, depending on whether you want it as a
+There are two ways to run layout-saver, depending on whether you want it as a
 normal double-clickable, Spotlight-searchable app, or as a background CLI
 service.
 
@@ -47,13 +47,13 @@ Build it from source and let the bundling script assemble a real `App
 Snap.app` and install it to `~/Applications`:
 
 ```sh
-git clone https://github.com/maxgoodwin/app-snap
-cd app-snap
+git clone https://github.com/maxgoodwin/layout-saver
+cd layout-saver
 Scripts/build-app.sh
 ```
 
-After that, **App Snap** shows up in Spotlight (⌘Space → type "App Snap") and
-Launchpad like any other app — launch it from there, or `open -a "App Snap"`.
+After that, **Layout Saver** shows up in Spotlight (⌘Space → type "Layout Saver") and
+Launchpad like any other app — launch it from there, or `open -a "Layout Saver"`.
 Re-run `Scripts/build-app.sh` any time you pull new changes to rebuild and
 reinstall it.
 
@@ -65,27 +65,27 @@ ad-hoc signed, not signed with a Developer ID.
 ### As a background service (Homebrew)
 
 ```sh
-brew tap maxgoodwin/app-snap
-brew install app-snap
-brew services start app-snap   # keeps it running across logins
+brew tap maxgoodwin/layout-saver
+brew install layout-saver
+brew services start layout-saver   # keeps it running across logins
 ```
 
-To stop it: `brew services stop app-snap`.
+To stop it: `brew services stop layout-saver`.
 
-This path installs the bare `app-snap` binary as a `brew services`-managed
+This path installs the bare `layout-saver` binary as a `brew services`-managed
 background process — it won't appear in Spotlight or Launchpad, since it's
 not an app bundle. Use this if you just want it always running headlessly;
 use the app bundle above if you want to launch/quit it like a normal app.
 
-You can also just run `app-snap` directly (e.g. from Terminal) without
+You can also just run `layout-saver` directly (e.g. from Terminal) without
 `brew services` — it'll run until you quit it from the menu bar or close the
 terminal.
 
 ### Grant Accessibility access
 
-app-snap needs to read and move other apps' windows, which macOS gates behind
+layout-saver needs to read and move other apps' windows, which macOS gates behind
 the **Accessibility** permission. On first launch, click the menu bar icon →
-**Grant Accessibility Access…**, then enable App Snap in the System Settings
+**Grant Accessibility Access…**, then enable Layout Saver in the System Settings
 pane that opens (Privacy & Security → Accessibility).
 
 The app bundle is only ad-hoc signed (no Developer ID certificate yet), so
@@ -120,12 +120,12 @@ Click the menu bar icon (three stacked rectangles) to:
   can rename, duplicate, update (overwrite in place), toggle default/launch-
   missing-apps, or delete any of them.
 - **Auto-Apply on Monitor Change** — checkable toggle; on by default. When
-  on, app-snap watches for display connect/disconnect events and, once the
+  on, layout-saver watches for display connect/disconnect events and, once the
   new setup settles, automatically applies the matching saved layout
   (preferring its default if one's set, then whichever was most recently
   applied/updated), briefly showing a status-bar message rather than a modal
   alert so it doesn't interrupt you.
-- **Launch at Login** — checkable toggle; registers app-snap to start
+- **Launch at Login** — checkable toggle; registers layout-saver to start
   automatically at login via `SMAppService`. Only shown when running as the
   proper `.app` bundle.
 - **Undo Last Apply** — reverts to how windows were arranged immediately
@@ -133,13 +133,13 @@ Click the menu bar icon (three stacked rectangles) to:
   for the current session; nothing is persisted for undo across relaunches.
 - **Apply Matching Layout Now** — applies whichever saved layout matches the
   current monitor setup right now, also bound to the global shortcut
-  **⌃⌥⌘L** (works even when app-snap isn't the active app).
+  **⌃⌥⌘L** (works even when layout-saver isn't the active app).
 
 CLI flags:
 
 ```
-app-snap --version
-app-snap --help
+layout-saver --version
+layout-saver --help
 ```
 
 ## How it works
@@ -152,15 +152,15 @@ set, which is what a saved layout is matched against — so it doesn't matter
 which cable/port an external monitor is plugged into, only *which* monitors
 are connected.
 
-Layouts are stored as JSON in `~/Library/Application Support/app-snap/`.
+Layouts are stored as JSON in `~/Library/Application Support/layout-saver/`.
 
 ## Building from source
 
 ```sh
-git clone https://github.com/maxgoodwin/app-snap
-cd app-snap
+git clone https://github.com/maxgoodwin/layout-saver
+cd layout-saver
 swift build -c release
-.build/release/app-snap
+.build/release/layout-saver
 ```
 
 Requires macOS 14+ and the Swift 5.9+ toolchain (Xcode or Command Line Tools).

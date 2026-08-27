@@ -1,6 +1,7 @@
 #!/bin/bash
-# Builds app-snap and assembles it into a proper App Snap.app bundle, installed
-# to ~/Applications so Spotlight/Launch Services indexes it like any other app.
+# Builds layout-saver and assembles it into a proper Layout Saver.app bundle,
+# installed to ~/Applications so Spotlight/Launch Services indexes it like any
+# other app.
 #
 # SwiftPM's `swift build` only produces a bare executable, not an app bundle —
 # this script does the rest by hand rather than requiring a full Xcode project.
@@ -9,10 +10,10 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
-APP_NAME="App Snap"
-EXECUTABLE_NAME="app-snap"
+APP_NAME="Layout Saver"
+EXECUTABLE_NAME="layout-saver"
 CONFIGURATION="release"
-INSTALL_DIR="${APP_SNAP_INSTALL_DIR:-$HOME/Applications}"
+INSTALL_DIR="${LAYOUT_SAVER_INSTALL_DIR:-$HOME/Applications}"
 
 VERSION=$(grep -m1 '^let version' "Sources/$EXECUTABLE_NAME/main.swift" | sed -E 's/.*"([^"]*)".*/\1/')
 if [[ -z "$VERSION" ]]; then
@@ -45,4 +46,4 @@ echo "==> Registering with Launch Services"
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$INSTALL_DIR/$APP_NAME.app"
 
 echo "==> Done: $INSTALL_DIR/$APP_NAME.app"
-echo "    It should now appear in Spotlight search for \"App Snap\" (may take a few seconds to index)."
+echo "    It should now appear in Spotlight search for \"Layout Saver\" (may take a few seconds to index)."

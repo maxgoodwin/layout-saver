@@ -9,7 +9,7 @@ enum AccessibilityPermission {
         AXIsProcessTrusted()
     }
 
-    /// Triggers the system "app-snap would like to control this computer" prompt
+    /// Triggers the system "layout-saver would like to control this computer" prompt
     /// if not already trusted, which deep-links the user into System Settings.
     /// Calling this repeatedly after the user has dismissed the prompt once has
     /// no further effect, which is why `openSystemSettings()` exists as a fallback.

@@ -7,9 +7,28 @@ final class LayoutStore {
 
     init() {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let dir = appSupport.appendingPathComponent("app-snap", isDirectory: true)
+        let dir = appSupport.appendingPathComponent("layout-saver", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         self.fileURL = dir.appendingPathComponent("layouts.json")
+
+        Self.migrateFromLegacyLocationIfNeeded(appSupport: appSupport, newFileURL: fileURL)
+    }
+
+    /// One-time migration for the app-snap → layout-saver rename: this app's
+    /// Application Support directory changed name (it's a literal, not derived
+    /// from the bundle identifier), so a fresh install would otherwise see no
+    /// saved layouts even though the old app-snap directory still has them.
+    /// Copies `layouts.json` from the old location into the new one exactly once
+    /// — only when the new file doesn't exist yet, so it never overwrites
+    /// anything a rebuilt/relaunched layout-saver has already written, and never
+    /// re-copies on every launch.
+    private static func migrateFromLegacyLocationIfNeeded(appSupport: URL, newFileURL: URL) {
+        guard !FileManager.default.fileExists(atPath: newFileURL.path) else { return }
+        let legacyFileURL = appSupport
+            .appendingPathComponent("app-snap", isDirectory: true)
+            .appendingPathComponent("layouts.json")
+        guard FileManager.default.fileExists(atPath: legacyFileURL.path) else { return }
+        try? FileManager.default.copyItem(at: legacyFileURL, to: newFileURL)
     }
 
     func all() -> [Layout] {

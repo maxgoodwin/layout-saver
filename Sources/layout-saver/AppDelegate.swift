@@ -59,8 +59,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// `addGlobalMonitorForEvents` only *observes* key-down events system-wide
     /// (it can't consume/block them) and, like the window-control APIs
     /// elsewhere in this file, is gated by the same Accessibility trust
-    /// app-snap already requires — no separate permission needed. The local
-    /// monitor covers the case where one of app-snap's own windows (e.g. Manage
+    /// layout-saver already requires — no separate permission needed. The local
+    /// monitor covers the case where one of layout-saver's own windows (e.g. Manage
     /// Layouts) happens to be key, since the global monitor doesn't fire then.
     private func installGlobalShortcut() {
         globalShortcutMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
@@ -116,7 +116,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func updateStatusIcon() {
         let hasMatch = !layoutStore.layouts(matching: DisplayFingerprint.currentFingerprint()).isEmpty
         let symbolName = hasMatch ? "rectangle.3.group.fill" : "rectangle.3.group"
-        let description = hasMatch ? "app-snap (layout saved for this setup)" : "app-snap (no layout saved for this setup)"
+        let description = hasMatch ? "layout-saver (layout saved for this setup)" : "layout-saver (no layout saved for this setup)"
         statusItem.button?.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: description)
     }
 
@@ -182,7 +182,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
         menu.addItem(item("Manage Layouts…", #selector(openLayoutsWindow)))
         menu.addItem(.separator())
-        menu.addItem(item("Quit app-snap", #selector(quit), keyEquivalent: "q"))
+        menu.addItem(item("Quit layout-saver", #selector(quit), keyEquivalent: "q"))
     }
 
     /// Builds a submenu listing every saved layout (current-setup matches grouped on
@@ -420,7 +420,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // size on every update, which fights the user's manual resizes and
             // makes the window feel non-resizable even with .resizable set.
             let hostingController = NSHostingController(rootView: LayoutsView(store: layoutStore))
-            window.title = "app-snap Layouts"
+            window.title = "layout-saver Layouts"
             window.contentViewController = hostingController
             window.contentMinSize = NSSize(width: 460, height: 300)
             window.isReleasedWhenClosed = false
@@ -438,7 +438,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.terminate(nil)
     }
 
-    /// A quick modal summary rather than a system notification: app-snap ships as
+    /// A quick modal summary rather than a system notification: layout-saver ships as
     /// a bare, unsigned SwiftPM binary with no bundle identifier, and
     /// UNUserNotificationCenter/NSUserNotification are unreliable (often silently
     /// no-op) without one. An alert always works.
