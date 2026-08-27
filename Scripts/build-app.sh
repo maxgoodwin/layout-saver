@@ -31,6 +31,7 @@ APP_BUNDLE="$STAGING_DIR/$APP_NAME.app"
 mkdir -p "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Resources"
 
 cp ".build/$CONFIGURATION/$EXECUTABLE_NAME" "$APP_BUNDLE/Contents/MacOS/$EXECUTABLE_NAME"
+cp "Resources/AppIcon.icns" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
 sed "s/@VERSION@/$VERSION/g" Resources/Info.plist.template > "$APP_BUNDLE/Contents/Info.plist"
 plutil -lint "$APP_BUNDLE/Contents/Info.plist" > /dev/null
 
